@@ -1,0 +1,115 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest supported toolchain (matching go.mod) plus whatever is
+        # current, so toolchain drift surfaces here and not in a consumer's job.
+        go-version: ["1.22", "1.23", "stable"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Build
+        run: go build -o /tmp/tf-residency-lint .
+
+      - name: Smoke-test (inventory needs no ruleset → exit 0)
+        run: /tmp/tf-residency-lint inventory --plan testdata/plan.json --stateful-only
+
+      # The rulesets shipped in this repo are fictional examples. They must not
+      # gate anybody's pipeline unless the operator explicitly opts in.
+      - name: Smoke-test (example rulesets do not gate by default → exit 0)
+        run: |
+          /tmp/tf-residency-lint check \
+            --plan testdata/plan.json \
+            --config testdata/residency.yaml \
+            --rulesets ./rulesets
+
+      - name: Smoke-test (violations gate → exit 1)
+        run: |
+          if /tmp/tf-residency-lint check \
+            --plan testdata/plan.json \
+            --config testdata/residency.yaml \
+            --rulesets ./rulesets \
+            --allow-unpublished; then
+            echo "expected a non-zero exit for a plan with residency violations" >&2
+            exit 1
+          fi
+
+      - name: Smoke-test (JSON output is valid and carries the disclaimer)
+        run: |
+          /tmp/tf-residency-lint check \
+            --plan testdata/plan.json \
+            --config testdata/residency.yaml \
+            --rulesets ./rulesets \
+            --allow-unpublished --json > /tmp/report.json || true
+          python3 - <<'PY'
+          import json, sys
+          doc = json.load(open("/tmp/report.json"))
+          assert doc["tool"] == "tf-residency-lint", doc.get("tool")
+          assert doc["disclaimer"], "report must carry the disclaimer"
+          assert doc["result"]["findings"], "expected findings"
+          for f in doc["result"]["findings"]:
+              if f["rule"] == "residency-violation":
+                  assert f["source_url"] and f["checked_on"], f
+          PY
+
+      # The example rulesets are not published, so the audit is expected to say
+      # so. This step asserts the audit notices rather than staying quiet.
+      - name: Smoke-test (ruleset audit flags unpublished research → exit 1)
+        run: |
+          if /tmp/tf-residency-lint rulesets validate --rulesets ./rulesets; then
+            echo "expected a non-zero exit: the shipped rulesets are examples" >&2
+            exit 1
+          fi
+
+      # A rule with no citation must stop the run, not be skipped.
+      - name: Smoke-test (uncited ruleset is a hard error → exit 2)
+        run: |
+          set +e
+          /tmp/tf-residency-lint rulesets validate --rulesets testdata/bad_rulesets
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "expected exit 2 for an uncited ruleset, got $code" >&2
+            exit 1
+          fi
+
+      - name: Smoke-test (a non-plan JSON file is an error, never a pass)
+        run: |
+          echo '{"hello":"world"}' > /tmp/not-a-plan.json
+          set +e
+          /tmp/tf-residency-lint check \
+            --plan /tmp/not-a-plan.json \
+            --config testdata/residency.yaml \
+            --rulesets ./rulesets
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "expected exit 2 for a document that is not terraform json, got $code" >&2
+            exit 1
+          fi
