@@ -1,0 +1,203 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.5",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.customer_docs",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "customer_docs",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "bucket": "acme-customer-docs",
+            "region": "eu-west-1",
+            "tags": { "data-class": "personal" },
+            "tags_all": { "data-class": "personal", "owner": "platform" }
+          }
+        },
+        {
+          "address": "aws_efs_file_system.scratch",
+          "mode": "managed",
+          "type": "aws_efs_file_system",
+          "name": "scratch",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {
+            "creation_token": "scratch"
+          }
+        },
+        {
+          "address": "data.aws_caller_identity.current",
+          "mode": "data",
+          "type": "aws_caller_identity",
+          "name": "current",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "values": {}
+        }
+      ],
+      "child_modules": [
+        {
+          "address": "module.core_db",
+          "resources": [
+            {
+              "address": "module.core_db.aws_rds_cluster.primary",
+              "mode": "managed",
+              "type": "aws_rds_cluster",
+              "name": "primary",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "values": {
+                "cluster_identifier": "acme-core",
+                "availability_zones": ["ex-central-1a", "ex-central-1b"],
+                "master_password": "hunter2",
+                "tags": { "system": "core" }
+              }
+            }
+          ]
+        },
+        {
+          "address": "module.payments",
+          "resources": [
+            {
+              "address": "module.payments.aws_dynamodb_table.ledger[0]",
+              "mode": "managed",
+              "type": "aws_dynamodb_table",
+              "name": "ledger",
+              "index": 0,
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "values": {
+                "name": "ledger-0",
+                "region": "us-east-1",
+                "tags": { "data-class": "financial" }
+              }
+            },
+            {
+              "address": "module.payments.aws_sqs_queue.settlement",
+              "mode": "managed",
+              "type": "aws_sqs_queue",
+              "name": "settlement",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "values": {
+                "name": "settlement",
+                "tags": { "data-class": "financial" }
+              }
+            }
+          ]
+        },
+        {
+          "address": "module.clinical",
+          "resources": [
+            {
+              "address": "module.clinical.azurerm_storage_account.records",
+              "mode": "managed",
+              "type": "azurerm_storage_account",
+              "name": "records",
+              "provider_name": "registry.terraform.io/hashicorp/azurerm",
+              "values": {
+                "name": "acmeclinicalrecords",
+                "location": "West Europe",
+                "primary_access_key": "REDACTED-BUT-PRESENT-IN-REAL-PLANS",
+                "tags": { "system": "clinical" }
+              }
+            }
+          ]
+        },
+        {
+          "address": "module.analytics",
+          "resources": [
+            {
+              "address": "module.analytics.google_storage_bucket.events",
+              "mode": "managed",
+              "type": "google_storage_bucket",
+              "name": "events",
+              "provider_name": "registry.terraform.io/hashicorp/google",
+              "values": {
+                "name": "acme-events",
+                "location": "EU",
+                "labels": { "data-class": "personal" }
+              }
+            },
+            {
+              "address": "module.analytics.google_compute_instance.worker",
+              "mode": "managed",
+              "type": "google_compute_instance",
+              "name": "worker",
+              "provider_name": "registry.terraform.io/hashicorp/google",
+              "values": {
+                "name": "analytics-worker",
+                "zone": "europe-west1-b"
+              }
+            }
+          ]
+        },
+        {
+          "address": "module.legacy",
+          "resources": [
+            {
+              "address": "module.legacy.oci_objectstorage_bucket.archive",
+              "mode": "managed",
+              "type": "oci_objectstorage_bucket",
+              "name": "archive",
+              "provider_name": "registry.terraform.io/oracle/oci",
+              "values": {
+                "name": "acme-archive",
+                "freeform_tags": { "data-class": "personal" }
+              }
+            }
+          ]
+        },
+        {
+          "address": "module.observability",
+          "resources": [
+            {
+              "address": "module.observability.aws_s3_bucket.logs",
+              "mode": "managed",
+              "type": "aws_s3_bucket",
+              "name": "logs",
+              "provider_name": "registry.terraform.io/hashicorp/aws",
+              "values": {
+                "bucket": "acme-logs",
+                "region": "us-east-1",
+                "tags": { "data-class": "personal" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "expressions": {
+          "region": { "constant_value": "eu-west-1" }
+        }
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.customer_docs",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "provider_config_key": "aws"
+        }
+      ],
+      "module_calls": {
+        "payments": {
+          "module": {
+            "resources": [
+              {
+                "address": "aws_sqs_queue.settlement",
+                "mode": "managed",
+                "type": "aws_sqs_queue",
+                "provider_config_key": "payments:aws"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
