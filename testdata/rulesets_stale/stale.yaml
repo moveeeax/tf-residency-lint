@@ -1,0 +1,19 @@
+# FICTIONAL. Used only to prove the freshness audit fails an overdue review:
+# one entry checked long ago, and only two of the four data classes covered.
+version: 1
+jurisdiction: ST
+name: Stale Republic (fictional)
+status: published
+
+entries:
+  - data_class: personal
+    must_stay_local: "yes"
+    allowed_regions:
+      aws: ["st-central-1"]
+    source_url: "https://example.invalid/stale/data-act"
+    checked_on: "2020-01-01"
+
+  - data_class: financial
+    must_stay_local: "no"
+    source_url: "https://example.invalid/stale/finance-guidance"
+    checked_on: "2026-07-20"

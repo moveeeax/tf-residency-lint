@@ -1,0 +1,25 @@
+# FICTIONAL. Second jurisdiction, marked published so that the CLI tests can
+# exercise the default gating path across more than one ruleset.
+version: 1
+jurisdiction: WM
+name: Federation of Westmark (fictional)
+status: published
+
+entries:
+  - data_class: personal
+    must_stay_local: conditional
+    transfer_mechanism: "Adequacy list, or an approved intra-group agreement."
+    allowed_regions:
+      aws: ["wm-north-1", "ex-central-1"]
+      azure: ["westmarknorth"]
+    source_url: "https://example.invalid/westmark/data-protection-act#ch-5"
+    checked_on: "2026-07-20"
+
+  - data_class: financial
+    must_stay_local: "yes"
+    allowed_regions:
+      aws: ["wm-north-1"]
+    in_country_alternatives:
+      - "Westmark Interbank Cloud"
+    source_url: "https://example.invalid/westmark/payment-services-rules#r-22"
+    checked_on: "2026-07-20"

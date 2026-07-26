@@ -1,0 +1,59 @@
+# FICTIONAL. The Republic of Examplestan does not exist, its regulator does not
+# exist, and none of these regions are real. This file exists so that the schema
+# has a worked example and so that the README command actually runs.
+#
+# `status: example` means the engine will not gate a pipeline on it unless you
+# pass --allow-unpublished. Nothing here should ever be copied into a real
+# review.
+version: 1
+jurisdiction: EX
+name: Republic of Examplestan (fictional)
+status: example
+note: >-
+  Worked example of the ruleset schema. Every field shown here is required of a
+  real jurisdiction file, including source_url and checked_on on every entry.
+
+entries:
+  # Hard localisation with hyperscaler regions available: the common shape.
+  - data_class: personal
+    must_stay_local: "yes"
+    allowed_regions:
+      aws: ["ex-central-1"]
+      azure: ["examplestancentral"]
+      gcp: ["ex-central1"]
+      oci: ["ex-capital-1"]
+    penalty: "Fictional. Up to 2% of annual turnover."
+    source_url: "https://example.invalid/examplestan/personal-data-act-2024#art-19"
+    checked_on: "2026-07-20"
+
+  # Hard localisation with no hyperscaler region in-country: the finding the
+  # customer actually needs, because the fix is an architecture decision.
+  - data_class: health
+    must_stay_local: "yes"
+    in_country_alternatives:
+      - "Examplestan National Health Cloud (state-operated)"
+      - "Colocation in Example City with a licensed operator"
+    penalty: "Fictional. Licence suspension."
+    source_url: "https://example.invalid/examplestan/health-records-rules-2025#s-7"
+    checked_on: "2026-07-20"
+
+  # Transfer permitted only via a named mechanism: a warning, not a violation,
+  # because whether the mechanism is in place is a fact the tool cannot see.
+  - data_class: financial
+    must_stay_local: conditional
+    transfer_mechanism: >-
+      Prior written no-objection from the Examplestan Financial Authority, plus
+      a copy of the processing agreement filed within 30 days.
+    allowed_regions:
+      aws: ["ex-central-1"]
+      azure: ["examplestancentral"]
+    penalty: "Fictional. Fine per affected record."
+    source_url: "https://example.invalid/examplestan/financial-circular-11#para-4"
+    checked_on: "2026-07-20"
+
+  # No obligation at all: recorded explicitly, so that "we did not research it"
+  # and "we researched it and there is no rule" are never confused.
+  - data_class: government
+    must_stay_local: "no"
+    source_url: "https://example.invalid/examplestan/public-sector-guidance-2026"
+    checked_on: "2026-07-20"

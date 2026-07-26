@@ -1,0 +1,31 @@
+# FICTIONAL — see examplestan.yaml. A second jurisdiction so that the
+# multi-jurisdiction path (one resource evaluated against several rulesets) is
+# exercised by the README example and by CI.
+version: 1
+jurisdiction: WM
+name: Federation of Westmark (fictional)
+status: example
+note: Second fictional jurisdiction used to demonstrate overlapping obligations.
+
+entries:
+  - data_class: personal
+    must_stay_local: conditional
+    transfer_mechanism: >-
+      Transfer permitted to a jurisdiction on the Westmark adequacy list, or
+      under an approved intra-group agreement registered with the regulator.
+    allowed_regions:
+      aws: ["wm-north-1", "ex-central-1"]
+      azure: ["westmarknorth"]
+    penalty: "Fictional. Administrative fine."
+    source_url: "https://example.invalid/westmark/data-protection-act#ch-5"
+    checked_on: "2026-07-20"
+
+  - data_class: financial
+    must_stay_local: "yes"
+    allowed_regions:
+      aws: ["wm-north-1"]
+    in_country_alternatives:
+      - "Westmark Interbank Cloud"
+    penalty: "Fictional. Licence conditions."
+    source_url: "https://example.invalid/westmark/payment-services-rules#r-22"
+    checked_on: "2026-07-20"

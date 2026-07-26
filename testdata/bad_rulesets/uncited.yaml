@@ -1,0 +1,14 @@
+# FICTIONAL and deliberately invalid: an entry with no source_url. Loading this
+# directory must fail, because a rule nobody can trace to a document is exactly
+# what this tool refuses to ship.
+version: 1
+jurisdiction: BAD
+name: Uncited Republic (fictional)
+status: published
+
+entries:
+  - data_class: personal
+    must_stay_local: "yes"
+    allowed_regions:
+      aws: ["bad-central-1"]
+    checked_on: "2026-07-20"
