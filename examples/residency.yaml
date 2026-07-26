@@ -1,0 +1,55 @@
+# residency.yaml — starter template. Copy this into the root of your Terraform
+# repository, edit it, and keep it under review: it is the record of which parts
+# of your estate carry which class of regulated data.
+#
+# The tool never infers a data class from a resource name. If it is not declared
+# here, it is not in scope, and `--report-unclassified` will tell you what that
+# silently swallowed.
+version: 1
+
+# Jurisdiction codes, matching a file in the rulesets directory. Every code
+# listed here must have a ruleset; a missing one is an error, not a pass.
+jurisdictions:
+  - SA
+  - AE
+
+# What to do with a resource no declaration matches. "none" means out of scope.
+default_class: none
+
+declarations:
+  # Match by module or resource address. A trailing "*" covers the subtree, and
+  # count/for_each indices are handled for you.
+  - name: customer records database
+    data_class: personal
+    match:
+      addresses:
+        - "module.customer_db.*"
+
+  # Match by tag. This is usually the one that scales: tag once at the module
+  # level and every resource underneath inherits the classification.
+  - name: payment processing
+    data_class: financial
+    match:
+      tags:
+        data-class: financial
+
+  # Match by resource type when a whole service is in scope by construction.
+  - name: analytics warehouse
+    data_class: personal
+    match:
+      resource_types:
+        - google_bigquery_dataset
+        - aws_redshift_cluster
+
+# Out of scope entirely: no finding is produced for these at all. Say why.
+exclusions:
+  # Operational telemetry only; customer identifiers are scrubbed at ingest.
+  - "module.observability.*"
+
+# Accepted exposure, with an owner-visible expiry. A waiver needs a reason and
+# an expires_on date; once it expires it stops suppressing and the tool says so.
+waivers:
+  - address: "module.legacy_reporting.*"
+    jurisdiction: SA
+    reason: "Decommission scheduled 2027-Q1; tracked in PLAT-4412."
+    expires_on: "2027-03-31"

@@ -1,0 +1,35 @@
+# Fixture: same estate, but with one live waiver and one that has expired.
+# Unit tests pin the clock, so these dates are stable.
+version: 1
+
+jurisdictions:
+  - EX
+
+default_class: none
+
+declarations:
+  - name: payments and settlement
+    data_class: financial
+    match:
+      tags:
+        data-class: financial
+
+  - name: customer documents
+    data_class: personal
+    match:
+      addresses:
+        - "aws_s3_bucket.customer_docs"
+
+waivers:
+  # Live: migration to ex-central-1 is scheduled and the regulator has been told.
+  - address: "module.payments.aws_dynamodb_table.ledger*"
+    jurisdiction: EX
+    reason: "Migration to ex-central-1 scheduled; regulator notified 2026-06-01."
+    expires_on: "2026-12-31"
+
+  # Expired: kept in the file on purpose so the tool has to prove it stops
+  # suppressing rather than quietly going red with no explanation.
+  - address: "aws_s3_bucket.customer_docs"
+    jurisdiction: "*"
+    reason: "One-off export for the 2025 audit."
+    expires_on: "2026-01-31"

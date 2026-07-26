@@ -1,0 +1,52 @@
+# Fixture: the residency declaration for the estate in testdata/plan.json.
+# Also used by the README walkthrough and by the CI smoke tests.
+version: 1
+
+jurisdictions:
+  - EX
+  - WM
+
+# Anything no declaration matches is out of scope. Run with
+# --report-unclassified to see what that silently swallowed.
+default_class: none
+
+declarations:
+  - name: customer documents
+    data_class: personal
+    match:
+      addresses:
+        - "aws_s3_bucket.customer_docs"
+
+  - name: core customer database
+    data_class: personal
+    match:
+      addresses:
+        - "module.core_db.*"
+
+  - name: payments and settlement
+    data_class: financial
+    match:
+      tags:
+        data-class: financial
+
+  - name: clinical records
+    data_class: health
+    match:
+      addresses:
+        - "module.clinical.*"
+
+  - name: product analytics
+    data_class: personal
+    match:
+      resource_types:
+        - google_storage_bucket
+
+  - name: legacy archive
+    data_class: personal
+    match:
+      addresses:
+        - "module.legacy.*"
+
+exclusions:
+  # Operational telemetry: no customer records, scrubbed at ingest.
+  - "module.observability.*"
