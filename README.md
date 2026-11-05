@@ -45,6 +45,8 @@ pass `--allow-unpublished`.
 
 ## Install
 
+Requires Go 1.26 or newer.
+
 ```console
 go install github.com/moveeeax/tf-residency-lint@latest
 ```
@@ -265,3 +267,7 @@ make build
 
 Fixtures live in `testdata/`. Every jurisdiction in the fixtures and in
 `rulesets/` is fictional, and every URL in them is under `example.invalid`.
+
+## License
+
+[MIT](LICENSE)
