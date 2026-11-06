@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - MIT license.
+- `check --format text|json|sarif|junit`. SARIF 2.1.0 for GitHub code scanning
+  (one rule per finding rule, results located at the matching `residency.yaml`
+  declaration with the resource address as a logical location, disclaimer in
+  `run.properties`); JUnit XML with one testcase per (jurisdiction, resource)
+  for GitLab and Jenkins. `--json` stays as an alias for `--format json`.
 
 ## [0.1.0] - 2026-07-26
 

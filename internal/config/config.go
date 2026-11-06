@@ -77,10 +77,15 @@ type Declaration struct {
 	Match     Match  `yaml:"match"`
 
 	class DataClass
+	line  int
 }
 
 // Class is the parsed, canonical data class of the declaration.
 func (d Declaration) Class() DataClass { return d.class }
+
+// Line is the 1-based line in residency.yaml where the declaration starts, or 0
+// when the config did not come from YAML text.
+func (d Declaration) Line() int { return d.line }
 
 // Match is the criteria set. A resource matches the declaration if it satisfies
 // any populated criterion (OR), which is what people expect when they list a
@@ -144,7 +149,43 @@ func Parse(data []byte) (*Config, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
+	cfg.recordLines(data)
 	return &cfg, nil
+}
+
+// recordLines notes where each declaration starts so reports can point a reader
+// at the line that classified a resource. It is best effort: the document has
+// already decoded, so a failure here only means no line numbers.
+func (c *Config) recordLines(data []byte) {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil || len(root.Content) == 0 {
+		return
+	}
+	doc := root.Content[0]
+	if doc.Kind != yaml.MappingNode {
+		return
+	}
+	for i := 0; i+1 < len(doc.Content); i += 2 {
+		if doc.Content[i].Value != "declarations" {
+			continue
+		}
+		seq := doc.Content[i+1]
+		for j, n := range seq.Content {
+			if j < len(c.Declarations) {
+				c.Declarations[j].line = n.Line
+			}
+		}
+	}
+}
+
+// DeclarationLine returns the line of the named declaration, or 0 if unknown.
+func (c *Config) DeclarationLine(name string) int {
+	for _, d := range c.Declarations {
+		if d.Name == name {
+			return d.line
+		}
+	}
+	return 0
 }
 
 func (c *Config) validate() error {

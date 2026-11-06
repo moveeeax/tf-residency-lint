@@ -268,3 +268,90 @@ func TestUncitedRulesetIsALoadError(t *testing.T) {
 		t.Errorf("exit = %d, want %d", code, exitError)
 	}
 }
+
+func TestCheckFormatSARIF(t *testing.T) {
+	code, out, _, err := run(t, "check",
+		"--plan", planFixture,
+		"--config", configFixture,
+		"--rulesets", exampleRules,
+		"--allow-unpublished",
+		"--format", "sarif")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if code != exitFindings {
+		t.Errorf("exit = %d, want %d: the format must not change the gate", code, exitFindings)
+	}
+	var log struct {
+		Version string `json:"version"`
+		Runs    []struct {
+			Results []struct {
+				Level string `json:"level"`
+			} `json:"results"`
+			Properties struct {
+				Disclaimer string `json:"disclaimer"`
+			} `json:"properties"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal([]byte(out), &log); err != nil {
+		t.Fatalf("not valid SARIF JSON: %v\n%s", err, out)
+	}
+	if log.Version != "2.1.0" || len(log.Runs) != 1 || len(log.Runs[0].Results) == 0 {
+		t.Fatalf("unexpected SARIF: %s", out)
+	}
+	if log.Runs[0].Properties.Disclaimer == "" {
+		t.Error("SARIF must carry the disclaimer")
+	}
+	if !strings.Contains(out, `"uri": "../testdata/residency.yaml"`) {
+		t.Error("results should point at the residency config")
+	}
+}
+
+func TestCheckFormatJUnit(t *testing.T) {
+	code, out, _, err := run(t, "check",
+		"--plan", planFixture,
+		"--config", configFixture,
+		"--rulesets", exampleRules,
+		"--allow-unpublished",
+		"--format", "junit")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if code != exitFindings {
+		t.Errorf("exit = %d, want %d", code, exitFindings)
+	}
+	// The README walkthrough reports 5 violations, one per failing testcase.
+	if !strings.Contains(out, `<testsuites name="tf-residency-lint" tests="19" failures="5">`) {
+		t.Errorf("unexpected JUnit totals:\n%s", out)
+	}
+}
+
+func TestJSONFlagIsAnAliasForFormatJSON(t *testing.T) {
+	args := []string{"check", "--plan", planFixture, "--config", configFixture, "--rulesets", exampleRules}
+	_, viaFlag, _, err := run(t, append(args, "--json")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, viaFormat, _, err := run(t, append(args, "--format", "json")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// generated_at differs between runs; compare everything after it.
+	trim := func(s string) string { return s[strings.Index(s, `"jurisdictions"`):] }
+	if trim(viaFlag) != trim(viaFormat) {
+		t.Errorf("--json and --format json differ:\n%s\n---\n%s", viaFlag, viaFormat)
+	}
+	if _, _, _, err := run(t, append(args, "--json", "--format", "json")...); err != nil {
+		t.Errorf("--json with --format json should be accepted: %v", err)
+	}
+}
+
+func TestBadFormatIsAUsageError(t *testing.T) {
+	base := []string{"check", "--plan", planFixture, "--config", configFixture, "--rulesets", exampleRules}
+	for _, extra := range [][]string{{"--format", "xml"}, {"--json", "--format", "sarif"}} {
+		code, _, _, err := run(t, append(base, extra...)...)
+		if err == nil || code != exitError {
+			t.Errorf("%v: code = %d, err = %v; want a usage error", extra, code, err)
+		}
+	}
+}

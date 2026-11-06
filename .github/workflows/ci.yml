@@ -77,6 +77,28 @@ jobs:
                   assert f["source_url"] and f["checked_on"], f
           PY
 
+      - name: Smoke-test (SARIF and JUnit reports parse and carry the disclaimer)
+        run: |
+          for fmt in sarif junit; do
+            /tmp/tf-residency-lint check \
+              --plan testdata/plan.json \
+              --config testdata/residency.yaml \
+              --rulesets ./rulesets \
+              --allow-unpublished --format "$fmt" > "/tmp/report.$fmt" || true
+          done
+          python3 - <<'PY'
+          import json
+          import xml.etree.ElementTree as ET
+          log = json.load(open("/tmp/report.sarif"))
+          run = log["runs"][0]
+          assert log["version"] == "2.1.0", log["version"]
+          assert run["properties"]["disclaimer"], "SARIF must carry the disclaimer"
+          assert any(r["level"] == "error" for r in run["results"]), "expected error results"
+          root = ET.parse("/tmp/report.junit").getroot()
+          assert root.tag == "testsuites", root.tag
+          assert int(root.get("failures")) > 0, "expected failing testcases"
+          PY
+
       # The example rulesets are not published, so the audit is expected to say
       # so. This step asserts the audit notices rather than staying quiet.
       - name: Smoke-test (ruleset audit flags unpublished research → exit 1)

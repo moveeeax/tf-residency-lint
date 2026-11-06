@@ -373,3 +373,39 @@ func TestFindingsAreSortedBySeverity(t *testing.T) {
 		}
 	}
 }
+
+// Evaluated feeds the JUnit report's passing testcases: it must list every
+// pair a rule was applied to, and nothing a skipped ruleset never looked at.
+func TestEvaluatedListsCheckedPairs(t *testing.T) {
+	inv, cfg, set := fixtures(t, "../../testdata/residency.yaml", "../../rulesets")
+
+	quiet, err := Run(inv, cfg, set, Options{Now: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(quiet.Evaluated) != 0 {
+		t.Errorf("unpublished rulesets evaluated %d pairs, want 0", len(quiet.Evaluated))
+	}
+
+	loud, err := Run(inv, cfg, set, Options{Now: now, AllowUnpublished: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pairs := map[string]bool{}
+	for _, e := range loud.Evaluated {
+		pairs[e.Jurisdiction+" "+e.Address] = true
+	}
+	for _, want := range []string{
+		"EX module.core_db.aws_rds_cluster.primary", // clean in EX: no finding
+		"EX aws_s3_bucket.customer_docs",
+		"WM aws_s3_bucket.customer_docs",
+	} {
+		if !pairs[want] {
+			t.Errorf("Evaluated is missing %q", want)
+		}
+	}
+	// WM has no health entry: that pair is a missing-rule finding, not an evaluation.
+	if pairs["WM module.clinical.azurerm_storage_account.records"] {
+		t.Error("a pair with no ruleset entry must not count as evaluated")
+	}
+}

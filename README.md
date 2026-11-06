@@ -186,8 +186,32 @@ $ echo $?
 ```
 
 Drop `--allow-unpublished` and the same command exits `0` — fictional rulesets
-never gate. `--json` emits the same result machine-readably, with the disclaimer
-carried in the document.
+never gate. `--format` picks the report; the exit code does not depend on it.
+
+| `--format` | For | Notes |
+| --- | --- | --- |
+| `text` (default) | people | The report above. |
+| `json` | pipelines | The full result with the disclaimer in the document. `--json` is an alias. |
+| `sarif` | GitHub code scanning | SARIF 2.1.0, see below. |
+| `junit` | GitLab, Jenkins and other test-report views | JUnit XML, see below. |
+
+**SARIF.** One rule per finding rule (`residency-violation`, `no-approved-region`,
+…). `violation` maps to `error`, `warning` to `warning`, `info` (waived) to
+`note`. A plan has no source lines, so each result points at the line in
+`residency.yaml` where the declaration that classified the resource starts (line
+1 when none did, e.g. `stale-rule`), and carries the resource address as a
+logical location. The citation (`source_url`, `checked_on`) differs per
+jurisdiction and data class, so it is in each result's message and properties;
+the rule's `helpUri` points at the findings table below. The disclaimer is in
+`runs[0].properties.disclaimer`. Pass `--config` as a path relative to the
+repository root so code scanning can open the file.
+
+**JUnit.** One testsuite per jurisdiction (plus `(estate-wide)` for unclassified
+resources) and one testcase per (jurisdiction, resource) pair the rules were
+applied to, passes included. A testcase fails when it has a finding at or above
+`--fail-on`, so the test view agrees with the exit code; findings below the
+threshold go to `system-out`. Ruleset-level findings (`stale-rule`) appear as
+`ruleset <J>/<class>`. Every suite carries the disclaimer as a property.
 
 ### 4. Findings
 
@@ -236,6 +260,32 @@ cadence.
       --config residency.yaml \
       --rulesets ./rulesets \
       --report-unclassified
+```
+
+As code scanning alerts on GitHub:
+
+```yaml
+- name: Residency gate
+  run: |
+    tf-residency-lint check --plan plan.json --config residency.yaml \
+      --rulesets ./rulesets --format sarif > residency.sarif
+- uses: github/codeql-action/upload-sarif@v4
+  if: always()
+  with:
+    sarif_file: residency.sarif
+    category: tf-residency-lint
+```
+
+As test results on GitLab:
+
+```yaml
+residency:
+  script:
+    - tf-residency-lint check --plan plan.json --config residency.yaml --rulesets ./rulesets --format junit > residency.xml
+  artifacts:
+    when: always
+    reports:
+      junit: residency.xml
 ```
 
 ## Design decisions

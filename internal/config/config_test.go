@@ -210,3 +210,19 @@ func TestDataClassAliases(t *testing.T) {
 		t.Error("telemetry must not parse as a data class")
 	}
 }
+
+func TestDeclarationLines(t *testing.T) {
+	cfg, err := Load("../../testdata/residency.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Lines of the "- name:" entries in testdata/residency.yaml.
+	for name, want := range map[string]int{"customer documents": 14, "legacy archive": 44} {
+		if got := cfg.DeclarationLine(name); got != want {
+			t.Errorf("DeclarationLine(%q) = %d, want %d", name, got, want)
+		}
+	}
+	if got := cfg.DeclarationLine("default_class"); got != 0 {
+		t.Errorf("unknown declaration line = %d, want 0", got)
+	}
+}
