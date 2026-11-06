@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -60,6 +61,7 @@ func checkCmd(code *int) *cobra.Command {
 		configPath   string
 		rulesetsPath string
 		asJSON       bool
+		format       string
 		failOn       string
 		maxAgeDays   int
 		unclassified bool
@@ -70,12 +72,23 @@ func checkCmd(code *int) *cobra.Command {
 		Use:   "check",
 		Short: "Check a plan against the residency rulesets",
 		Example: "  terraform show -json tfplan > plan.json\n" +
-			"  tf-residency-lint check --plan plan.json --config residency.yaml --rulesets ./rulesets",
+			"  tf-residency-lint check --plan plan.json --config residency.yaml --rulesets ./rulesets\n" +
+			"  tf-residency-lint check --plan plan.json --format sarif > residency.sarif",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			severity, ok := check.ParseSeverity(failOn)
 			if !ok {
 				return fmt.Errorf("--fail-on must be violation, warning or info, got %q", failOn)
+			}
+			// --json predates --format and stays as an alias for --format json.
+			if asJSON {
+				if c.Flags().Changed("format") && format != "json" {
+					return fmt.Errorf("--json conflicts with --format %s", format)
+				}
+				format = "json"
+			}
+			if !validFormat(format) {
+				return fmt.Errorf("--format must be one of %s, got %q", strings.Join(checkFormats, ", "), format)
 			}
 			inv, err := loadPlan(planPath)
 			if err != nil {
@@ -107,8 +120,20 @@ func checkCmd(code *int) *cobra.Command {
 				}
 			}
 
-			if asJSON {
+			meta := report.Meta{
+				Plan:         planPath,
+				Config:       configPath,
+				Version:      Version,
+				FailOn:       severity,
+				Declarations: cfg,
+			}
+			switch format {
+			case "json":
 				return report.JSON(c.OutOrStdout(), res, planPath)
+			case "sarif":
+				return report.SARIF(c.OutOrStdout(), res, meta)
+			case "junit":
+				return report.JUnit(c.OutOrStdout(), res, meta)
 			}
 			report.Pretty(c.OutOrStdout(), res, planPath)
 			return nil
@@ -119,13 +144,26 @@ func checkCmd(code *int) *cobra.Command {
 	f.StringVar(&planPath, "plan", "", "path to `terraform show -json` output, or - for stdin (required)")
 	f.StringVar(&configPath, "config", "residency.yaml", "path to the residency declaration file")
 	f.StringVar(&rulesetsPath, "rulesets", "rulesets", "directory of versioned jurisdiction rulesets")
-	f.BoolVar(&asJSON, "json", false, "emit machine-readable JSON")
+	f.BoolVar(&asJSON, "json", false, "emit machine-readable JSON (alias for --format json)")
+	f.StringVar(&format, "format", "text", "output format: "+strings.Join(checkFormats, ", "))
 	f.StringVar(&failOn, "fail-on", string(check.Violation), "minimum severity that exits non-zero: violation, warning, info")
 	f.IntVar(&maxAgeDays, "max-rule-age-days", 90, "flag findings that rest on rules unverified for longer than this")
 	f.BoolVar(&unclassified, "report-unclassified", false, "warn about stateful resources no declaration covers")
 	f.BoolVar(&unpublished, "allow-unpublished", false, "let draft and example rulesets produce findings")
 	_ = cmd.MarkFlagRequired("plan")
 	return cmd
+}
+
+// checkFormats are the report formats `check` can write.
+var checkFormats = []string{"text", "json", "sarif", "junit"}
+
+func validFormat(f string) bool {
+	for _, known := range checkFormats {
+		if f == known {
+			return true
+		}
+	}
+	return false
 }
 
 func inventoryCmd() *cobra.Command {

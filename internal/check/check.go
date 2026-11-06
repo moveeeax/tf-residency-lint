@@ -94,6 +94,20 @@ type Result struct {
 	Scanned       int       `json:"resources_scanned"`
 	InScope       int       `json:"resources_in_scope"`
 	Findings      []Finding `json:"findings"`
+
+	// Evaluated lists every (jurisdiction, resource) pair a ruleset entry was
+	// applied to, findings or not, so test-style reports can show the passes.
+	// It stays out of the JSON report.
+	Evaluated []Evaluation `json:"-"`
+}
+
+// Evaluation is one in-scope resource checked against one jurisdiction.
+type Evaluation struct {
+	Address      string
+	ResourceType string
+	Jurisdiction string
+	DataClass    string
+	DeclaredBy   string
 }
 
 // Counts returns the number of findings at each severity.
@@ -197,6 +211,13 @@ func Run(inv plan.Inventory, cfg *config.Config, set *ruleset.Set, opts Options)
 			if rs.Status != ruleset.StatusPublished && !opts.AllowUnpublished {
 				continue
 			}
+			res.Evaluated = append(res.Evaluated, Evaluation{
+				Address:      r.Address,
+				ResourceType: r.Type,
+				Jurisdiction: j,
+				DataClass:    string(class),
+				DeclaredBy:   declaredBy,
+			})
 			if age := entry.Age(opts.Now); age > opts.MaxRuleAge {
 				key := j + "/" + string(class)
 				if !staleSeen[key] {
