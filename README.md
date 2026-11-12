@@ -22,6 +22,7 @@ said on a stated date. Verify it with counsel before acting on it.
 | `inventory` | The map: every resource, its cloud, its region, and how that region was determined. Needs no ruleset. |
 | `check` | The gate: applies rulesets to classified resources and exits non-zero on a violation. |
 | `rulesets validate` | The freshness audit: which rules are stale, which classes are uncovered, which files are not publishable. |
+| `policy check` | Change policy: YAML rules over the plan's resource changes, e.g. deny destroying a protected resource, require encryption on new storage. Needs no ruleset and no `residency.yaml`. |
 
 Exit codes: `0` clean, `1` findings at or above `--fail-on`, `2` usage or
 internal error. A malformed plan, a missing ruleset or an uncited rule is always
@@ -249,6 +250,124 @@ Rulesets loaded: EX, WM
 `stale` problems appear the same way once a `checked_on` date passes the
 cadence.
 
+## Plan policy
+
+`policy check` is a second, independent gate over the same plan file. It
+reads the `resource_changes` of `terraform show -json tfplan` and applies YAML
+rules: matchers over resource type, address, change action, tags and
+attribute values. No policy server, no new language, no cloud credentials.
+
+```console
+$ ./tf-residency-lint policy check \
+    --plan testdata/policy/plan.json \
+    --rules ./policies \
+    --rules testdata/policy/exemptions.yaml
+```
+
+Abridged output (the full run reports 8 denied, 2 warnings, 1 exempted):
+
+```
+  [violation] protected-destroy
+      resource   module.db.aws_db_instance.main (aws_db_instance)
+      action     replace
+      resource tagged protected=true would be destroyed
+      rule       policies/protect.yaml:7
+
+  [violation] s3-public-access-block
+      resource   aws_s3_bucket_public_access_block.site (aws_s3_bucket_public_access_block)
+      action     create
+      S3 public access block does not block all four kinds of public access
+      failed     block_public_policy equals true
+      failed     restrict_public_buckets equals true
+      rule       policies/public-access.yaml:5
+
+  [warning] ebs-volume-encrypted
+      resource   aws_ebs_volume.cache (aws_ebs_volume)
+      action     create
+      new EBS volume is not encrypted at rest (undetermined: encrypted known
+      only after apply)
+      rule       policies/encryption.yaml:13
+```
+
+`--rules` takes a file or a directory and can be repeated; extra positional
+arguments are rule files too, so `--rules policy/*.yaml` works after shell
+expansion. `--format` (`text`, `json`, `sarif`, `junit`) and the exit codes
+work as for `check`. `--fail-on` also accepts `deny` and `warn`.
+
+### Starter rules
+
+[`policies/`](policies) ships rules you can copy into your repo and edit:
+
+| File | Rules |
+| --- | --- |
+| `protect.yaml` | `protected-destroy`: deny delete or replace of a resource tagged `protected = "true"`. |
+| `encryption.yaml` | Deny new EBS volumes, RDS instances and clusters, Redshift clusters, ElastiCache replication groups and OpenSearch domains without encryption at rest. |
+| `public-access.yaml` | Deny an S3 public access block that leaves any of its four settings off, a publicly accessible RDS or Redshift database, an Azure storage account with `allow_nested_items_to_be_public`; warn on a GCS bucket without `public_access_prevention = "enforced"`. |
+
+The encryption rules cover only types where encryption at rest is opt-in. S3,
+DynamoDB, EFS, Azure Storage and Google Cloud Storage encrypt at rest without
+a setting, so rules for them would never fire.
+
+### Rule schema
+
+```yaml
+version: 1
+rules:
+  - id: rds-storage-encrypted        # lowercase, unique across all loaded files
+    description: new RDS instance is not encrypted at rest   # the finding message
+    severity: deny                   # deny | warn
+    match:                           # AND across fields, OR within a list
+      actions: [create]              # required: create, update, delete, replace, read, forget, no-op
+      resource_types: ["aws_db_*"]   # globs
+      addresses: ["module.db.*"]     # same globs as residency.yaml
+      tags: {tier: prod}             # every tag must match; "*" matches any value
+      attributes:                    # conditions that must all hold to select
+        - path: engine
+          in: [postgres, mysql]
+    require:                         # optional: conditions every selected change must meet
+      - path: storage_encrypted
+        equals: true
+
+exemptions:
+  - rule: rds-storage-encrypted
+    address: module.db.aws_db_instance.legacy
+    reason: Migrated to an encrypted cluster in TICKET-123; old instance retires next sprint.
+    expires_on: "2026-12-31"
+```
+
+A rule without `require` fires on every change it selects (the destroy rule
+works this way). A rule with `require` fires when a selected change fails a
+condition. Conditions take a `path` and exactly one operator: `exists`
+(true/false), `equals`, `not_equals`, `in`, `not_in`. Paths are dot-separated;
+nested blocks are lists in plan JSON, so write `encrypt_at_rest.0.enabled`, or
+`encrypt_at_rest.*.enabled` for every element. A path that leads nowhere has no
+value: `equals` and `in` fail on it, `not_equals` and `not_in` pass.
+
+Which object a rule sees depends on the change. A delete or replace is
+evaluated against the prior state, so the protection tag counts even when the
+same plan removes it; everything else is evaluated against the planned state.
+Tags are read from `tags`, `tags_all`, `labels` and `freeform_tags`. `delete`
+in `actions` also matches replacements, and `create` matches them too,
+because a replacement creates a new object.
+
+**Unknown is not clean here either.** When a value is only known after apply
+(an unset computed attribute, an interpolated tag), the finding is reported as
+a warning marked undetermined, never as a pass and never as a deny the plan
+cannot back up.
+
+**Exemptions need a reason and an expiry.** A live exemption downgrades the
+finding to `info`; an expired one stops suppressing and the finding says so.
+An exemption that names a rule no loaded file defines is a load error.
+
+**Values stay out of the report.** Policy rules have to read attribute values,
+but a finding names the attribute path and the condition from the rule file,
+never the value from the plan.
+
+SARIF results point at the line of the rules file where the failing rule
+starts, with the resource address as a logical location; every loaded rule is
+listed in the driver. JUnit has one testsuite per rule and one testcase per
+resource change the rule selected, passes included.
+
 ## In CI
 
 ```yaml
@@ -260,6 +379,13 @@ cadence.
       --config residency.yaml \
       --rulesets ./rulesets \
       --report-unclassified
+```
+
+With the change policy alongside:
+
+```yaml
+- name: Plan policy
+  run: tf-residency-lint policy check --plan plan.json --rules ./policies
 ```
 
 As code scanning alerts on GitHub:
@@ -315,8 +441,9 @@ make lint    # gofmt -l . && go vet ./...
 make build
 ```
 
-Fixtures live in `testdata/`. Every jurisdiction in the fixtures and in
-`rulesets/` is fictional, and every URL in them is under `example.invalid`.
+Fixtures live in `testdata/` (`testdata/policy/` for the plan policy). Every
+jurisdiction in the fixtures and in `rulesets/` is fictional, and every URL in
+them is under `example.invalid`.
 
 ## License
 

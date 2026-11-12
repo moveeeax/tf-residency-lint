@@ -1,0 +1,51 @@
+# Starter rules: storage created or changed by this plan must not be opened to
+# the public internet.
+version: 1
+rules:
+  - id: s3-public-access-block
+    description: S3 public access block does not block all four kinds of public access
+    severity: deny
+    match:
+      actions: [create, update]
+      resource_types: [aws_s3_bucket_public_access_block]
+    require:
+      - path: block_public_acls
+        equals: true
+      - path: block_public_policy
+        equals: true
+      - path: ignore_public_acls
+        equals: true
+      - path: restrict_public_buckets
+        equals: true
+
+  - id: rds-not-public
+    description: database is publicly accessible
+    severity: deny
+    match:
+      actions: [create, update]
+      resource_types: [aws_db_instance, aws_rds_cluster, aws_rds_cluster_instance, aws_redshift_cluster]
+    require:
+      - path: publicly_accessible
+        not_equals: true
+
+  - id: azure-storage-no-public-blobs
+    description: storage account lets containers and blobs be made public
+    severity: deny
+    match:
+      actions: [create, update]
+      resource_types: [azurerm_storage_account]
+    require:
+      - path: allow_nested_items_to_be_public
+        equals: false
+
+  # "inherited" is the provider default and is only safe when an organization
+  # policy enforces public access prevention, which the plan cannot show.
+  - id: gcs-public-access-prevention
+    description: bucket does not enforce public access prevention
+    severity: warn
+    match:
+      actions: [create, update]
+      resource_types: [google_storage_bucket]
+    require:
+      - path: public_access_prevention
+        equals: enforced

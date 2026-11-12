@@ -13,6 +13,7 @@ import (
 	"github.com/moveeeax/tf-residency-lint/internal/check"
 	"github.com/moveeeax/tf-residency-lint/internal/config"
 	"github.com/moveeeax/tf-residency-lint/internal/plan"
+	"github.com/moveeeax/tf-residency-lint/internal/policy"
 	"github.com/moveeeax/tf-residency-lint/internal/report"
 	"github.com/moveeeax/tf-residency-lint/internal/ruleset"
 )
@@ -47,7 +48,7 @@ func Run(args []string, stdout, stderr io.Writer) (int, error) {
 	root.SetErr(stderr)
 	root.SetArgs(args)
 
-	root.AddCommand(checkCmd(&code), inventoryCmd(), rulesetsCmd(&code))
+	root.AddCommand(checkCmd(&code), inventoryCmd(), rulesetsCmd(&code), policyCmd(&code))
 
 	if err := root.Execute(); err != nil {
 		return exitError, err
@@ -251,7 +252,93 @@ func rulesetsCmd(code *int) *cobra.Command {
 	return cmd
 }
 
-func loadPlan(path string) (plan.Inventory, error) {
+func policyCmd(code *int) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "policy",
+		Short: "Check planned changes against YAML policy rules",
+		Args:  cobra.NoArgs,
+		RunE:  func(c *cobra.Command, _ []string) error { return c.Help() },
+	}
+
+	var (
+		planPath string
+		rules    []string
+		format   string
+		failOn   string
+	)
+	run := &cobra.Command{
+		Use:   "check [rules-file...]",
+		Short: "Deny destroys of protected resources, require encryption on new storage, and more",
+		Long: "check evaluates YAML rules against the resource_changes of a plan: matchers over\n" +
+			"resource type, address, change action, tags and attribute values, with deny\n" +
+			"and warn severities and per-resource exemptions that carry a reason and an\n" +
+			"expiry. It reads `terraform show -json tfplan` and needs no cloud credentials\n" +
+			"and no residency.yaml.\n\n" +
+			"Rules come from --rules (files or directories, repeatable) and from positional\n" +
+			"arguments, so a shell glob such as `--rules policy/*.yaml` loads every file.",
+		Example: "  terraform show -json tfplan > plan.json\n" +
+			"  tf-residency-lint policy check --plan plan.json --rules ./policies\n" +
+			"  tf-residency-lint policy check --plan plan.json --rules policy/*.yaml --format sarif",
+		RunE: func(c *cobra.Command, args []string) error {
+			// Rule files say deny and warn; accept those spellings here too.
+			switch strings.ToLower(strings.TrimSpace(failOn)) {
+			case "deny":
+				failOn = string(check.Violation)
+			case "warn":
+				failOn = string(check.Warning)
+			}
+			severity, ok := check.ParseSeverity(failOn)
+			if !ok {
+				return fmt.Errorf("--fail-on must be deny (violation), warn (warning) or info, got %q", failOn)
+			}
+			if !validFormat(format) {
+				return fmt.Errorf("--format must be one of %s, got %q", strings.Join(checkFormats, ", "), format)
+			}
+			set, err := policy.Load(append(append([]string(nil), rules...), args...))
+			if err != nil {
+				return err
+			}
+			data, err := readPlan(planPath)
+			if err != nil {
+				return err
+			}
+			tf, changes, err := policy.ParseChanges(data)
+			if err != nil {
+				return fmt.Errorf("%s: %w", planPath, err)
+			}
+			res := policy.Run(tf, changes, set, time.Now().UTC())
+			for _, f := range res.Findings {
+				if f.Severity.AtLeast(severity) {
+					*code = exitFindings
+					break
+				}
+			}
+
+			meta := report.PolicyMeta{Plan: planPath, Version: Version, FailOn: severity, Rules: set}
+			switch format {
+			case "json":
+				return report.PolicyJSON(c.OutOrStdout(), res, planPath)
+			case "sarif":
+				return report.PolicySARIF(c.OutOrStdout(), res, meta)
+			case "junit":
+				return report.PolicyJUnit(c.OutOrStdout(), res, meta)
+			}
+			report.PolicyPretty(c.OutOrStdout(), res, planPath)
+			return nil
+		},
+	}
+	f := run.Flags()
+	f.StringVar(&planPath, "plan", "", "path to `terraform show -json tfplan` output, or - for stdin (required)")
+	f.StringArrayVar(&rules, "rules", nil, "rules file or directory; repeatable")
+	f.StringVar(&format, "format", "text", "output format: "+strings.Join(checkFormats, ", "))
+	f.StringVar(&failOn, "fail-on", string(check.Violation), "minimum severity that exits non-zero: deny (violation), warn (warning), info")
+	_ = run.MarkFlagRequired("plan")
+
+	cmd.AddCommand(run)
+	return cmd
+}
+
+func readPlan(path string) ([]byte, error) {
 	var (
 		data []byte
 		err  error
@@ -262,7 +349,15 @@ func loadPlan(path string) (plan.Inventory, error) {
 		data, err = os.ReadFile(path)
 	}
 	if err != nil {
-		return plan.Inventory{}, fmt.Errorf("read plan: %w", err)
+		return nil, fmt.Errorf("read plan: %w", err)
+	}
+	return data, nil
+}
+
+func loadPlan(path string) (plan.Inventory, error) {
+	data, err := readPlan(path)
+	if err != nil {
+		return plan.Inventory{}, err
 	}
 	inv, err := plan.Parse(data)
 	if err != nil {

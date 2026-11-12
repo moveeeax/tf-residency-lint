@@ -1,0 +1,62 @@
+# Starter rules: newly created storage must be encrypted at rest. "create" also
+# matches replacements, which create a new object.
+#
+# Only types whose encryption is opt-in are listed. S3 (since January 2023),
+# DynamoDB, EFS (the AWS provider documents that AWS encrypts every new file
+# system), Azure Storage and Google Cloud Storage encrypt at rest without a
+# setting, so a rule for them would never fail.
+#
+# When the attribute is computed and unset, Terraform only knows it after
+# apply; the finding is then a warning marked undetermined.
+version: 1
+rules:
+  - id: ebs-volume-encrypted
+    description: new EBS volume is not encrypted at rest
+    severity: deny
+    match:
+      actions: [create]
+      resource_types: [aws_ebs_volume]
+    require:
+      - path: encrypted
+        equals: true
+
+  - id: rds-storage-encrypted
+    description: new RDS instance or cluster is not encrypted at rest
+    severity: deny
+    match:
+      actions: [create]
+      resource_types: [aws_db_instance, aws_rds_cluster]
+    require:
+      - path: storage_encrypted
+        equals: true
+
+  - id: redshift-encrypted
+    description: new Redshift cluster is not encrypted at rest
+    severity: deny
+    match:
+      actions: [create]
+      resource_types: [aws_redshift_cluster]
+    require:
+      - path: encrypted
+        equals: true
+
+  - id: elasticache-at-rest-encrypted
+    description: new ElastiCache replication group is not encrypted at rest
+    severity: deny
+    match:
+      actions: [create]
+      resource_types: [aws_elasticache_replication_group]
+    require:
+      - path: at_rest_encryption_enabled
+        equals: true
+
+  - id: opensearch-encrypted
+    description: new OpenSearch domain is not encrypted at rest
+    severity: deny
+    match:
+      actions: [create]
+      resource_types: [aws_opensearch_domain]
+    require:
+      # A missing encrypt_at_rest block means disabled.
+      - path: encrypt_at_rest.*.enabled
+        equals: true

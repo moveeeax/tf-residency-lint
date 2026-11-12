@@ -99,6 +99,37 @@ jobs:
           assert int(root.get("failures")) > 0, "expected failing testcases"
           PY
 
+      - name: Smoke-test (plan policy denies a protected destroy → exit 1)
+        run: |
+          set +e
+          /tmp/tf-residency-lint policy check \
+            --plan testdata/policy/plan.json \
+            --rules ./policies \
+            --rules testdata/policy/exemptions.yaml \
+            --format sarif > /tmp/policy.sarif
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "expected exit 1 for a plan that destroys a protected resource, got $code" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          run = json.load(open("/tmp/policy.sarif"))["runs"][0]
+          assert any(r["ruleId"] == "protected-destroy" and r["level"] == "error" for r in run["results"]), "expected a protected-destroy error"
+          PY
+
+      - name: Smoke-test (plan policy refuses a state file → exit 2)
+        run: |
+          set +e
+          /tmp/tf-residency-lint policy check --plan testdata/state.json --rules ./policies
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "expected exit 2 for a state document, got $code" >&2
+            exit 1
+          fi
+
       # The example rulesets are not published, so the audit is expected to say
       # so. This step asserts the audit notices rather than staying quiet.
       - name: Smoke-test (ruleset audit flags unpublished research → exit 1)

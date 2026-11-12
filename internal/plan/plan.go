@@ -409,3 +409,7 @@ func walkConfigModule(prefix string, m configModule, out map[string]string) {
 		walkConfigModule(prefix+"module."+name+".", call.Module, out)
 	}
 }
+
+// ExtractTags reads the user-supplied labels from a resource's attribute
+// values, so the policy engine reads tags exactly as the inventory does.
+func ExtractTags(values map[string]any) map[string]string { return extractTags(values) }
