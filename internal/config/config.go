@@ -347,3 +347,7 @@ func globMatch(pattern, address string) bool {
 	}
 	return pattern == target
 }
+
+// MatchAddress matches a Terraform address against a residency.yaml-style
+// pattern, so every address glob in the tool behaves the same way.
+func MatchAddress(pattern, address string) bool { return globMatch(pattern, address) }

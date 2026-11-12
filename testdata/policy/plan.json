@@ -1,0 +1,349 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.5",
+  "planned_values": {
+    "root_module": {
+      "resources": []
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.audit",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "audit",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bucket": "acme-audit",
+          "tags": {
+            "protected": "true"
+          },
+          "tags_all": {
+            "protected": "true",
+            "owner": "platform"
+          }
+        },
+        "after": null,
+        "after_unknown": null,
+        "before_sensitive": {},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "aws_s3_bucket.tmp",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "tmp",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bucket": "acme-tmp",
+          "tags": null,
+          "tags_all": {
+            "owner": "platform"
+          }
+        },
+        "after": null,
+        "after_unknown": null,
+        "before_sensitive": {},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "aws_s3_bucket.old_logs",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "old_logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bucket": "acme-old-logs",
+          "tags": {
+            "protected": "true"
+          },
+          "tags_all": {
+            "protected": "true"
+          }
+        },
+        "after": null,
+        "after_unknown": null,
+        "before_sensitive": {},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "aws_s3_bucket.reports",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "reports",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "bucket": "acme-reports",
+          "tags": {
+            "protected": "true"
+          },
+          "tags_all": {
+            "protected": "true"
+          }
+        },
+        "after": null,
+        "after_unknown": null,
+        "before_sensitive": {},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.db.aws_db_instance.main",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "before": {
+          "identifier": "main",
+          "storage_encrypted": false,
+          "publicly_accessible": true,
+          "password": "hunter2",
+          "tags": {
+            "protected": "true"
+          },
+          "tags_all": {
+            "protected": "true"
+          }
+        },
+        "after": {
+          "identifier": "main",
+          "storage_encrypted": false,
+          "publicly_accessible": true,
+          "password": "hunter2",
+          "tags": {
+            "protected": "true"
+          },
+          "tags_all": {
+            "protected": "true"
+          }
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "tags": {},
+          "tags_all": {}
+        },
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_ebs_volume.cache",
+      "mode": "managed",
+      "type": "aws_ebs_volume",
+      "name": "cache",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "availability_zone": "eu-west-1a",
+          "size": 100,
+          "tags": null
+        },
+        "after_unknown": {
+          "encrypted": true,
+          "id": true,
+          "kms_key_id": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_ebs_volume.data",
+      "mode": "managed",
+      "type": "aws_ebs_volume",
+      "name": "data",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "availability_zone": "eu-west-1a",
+          "size": 100,
+          "encrypted": true,
+          "tags": null
+        },
+        "after_unknown": {
+          "id": true,
+          "kms_key_id": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_s3_bucket_public_access_block.site",
+      "mode": "managed",
+      "type": "aws_s3_bucket_public_access_block",
+      "name": "site",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "block_public_acls": true,
+          "block_public_policy": false,
+          "ignore_public_acls": true,
+          "restrict_public_buckets": false
+        },
+        "after_unknown": {
+          "bucket": true,
+          "id": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_opensearch_domain.search",
+      "mode": "managed",
+      "type": "aws_opensearch_domain",
+      "name": "search",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "domain_name": "search",
+          "encrypt_at_rest": [],
+          "engine_version": "OpenSearch_2.11"
+        },
+        "after_unknown": {
+          "arn": true,
+          "encrypt_at_rest": [],
+          "id": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "google_storage_bucket.assets",
+      "mode": "managed",
+      "type": "google_storage_bucket",
+      "name": "assets",
+      "provider_name": "registry.terraform.io/hashicorp/google",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "acme-assets",
+          "location": "EU",
+          "public_access_prevention": "inherited",
+          "labels": null
+        },
+        "after_unknown": {
+          "id": true,
+          "self_link": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "azurerm_storage_account.files",
+      "mode": "managed",
+      "type": "azurerm_storage_account",
+      "name": "files",
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "name": "acmefiles",
+          "allow_nested_items_to_be_public": false,
+          "primary_access_key": "REDACTED-BUT-PRESENT"
+        },
+        "after": {
+          "name": "acmefiles",
+          "allow_nested_items_to_be_public": true,
+          "primary_access_key": "REDACTED-BUT-PRESENT"
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_instance.web",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "web",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "ami": "ami-123",
+          "instance_type": "t3.micro"
+        },
+        "after": {
+          "ami": "ami-123",
+          "instance_type": "t3.micro"
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "data.aws_caller_identity.current",
+      "mode": "data",
+      "type": "aws_caller_identity",
+      "name": "current",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "read"
+        ],
+        "before": null,
+        "after": {
+          "account_id": "123456789012"
+        },
+        "after_unknown": {
+          "id": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    }
+  ]
+}

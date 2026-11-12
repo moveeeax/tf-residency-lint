@@ -1,0 +1,10 @@
+version: 1
+exemptions:
+  - rule: protected-destroy
+    address: aws_s3_bucket.old_logs
+    reason: Retention ended 2026-10-01; legal hold released in TICKET-123.
+    expires_on: "2099-12-31"
+  - rule: protected-destroy
+    address: aws_s3_bucket.reports
+    reason: Migration window for the reports bucket.
+    expires_on: "2026-01-31"

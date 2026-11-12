@@ -23,6 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declaration with the resource address as a logical location, disclaimer in
   `run.properties`); JUnit XML with one testcase per (jurisdiction, resource)
   for GitLab and Jenkins. `--json` stays as an alias for `--format json`.
+- `policy check`: YAML rules over the plan's `resource_changes`, matching on
+  resource type, address, change action, tags and attribute values, with
+  `deny` and `warn` severities and exemptions that need a reason and an
+  expiry. Values only known after apply produce undetermined warnings.
+  Text, JSON, SARIF and JUnit output. Starter rules in `policies/`: deny
+  destroy or replace of resources tagged `protected = "true"`, require
+  encryption at rest on new EBS, RDS, Redshift, ElastiCache and OpenSearch
+  storage, block public S3 access blocks, public databases and public Azure
+  blobs, warn on GCS buckets without enforced public access prevention.
+  Carried over from the archived `tf-plan-policy` idea.
 
 ## [0.1.0] - 2026-07-26
 

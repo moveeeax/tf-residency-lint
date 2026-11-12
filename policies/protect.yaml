@@ -1,0 +1,14 @@
+# Starter rule: a resource tagged protected=true may not be destroyed or
+# replaced. Tags are read from the resource as it exists now (the prior state),
+# so removing the tag in the same plan that destroys the resource does not get
+# past this rule. Change the tag key to the one your estate uses.
+version: 1
+rules:
+  - id: protected-destroy
+    description: resource tagged protected=true would be destroyed
+    severity: deny
+    match:
+      # "delete" also catches replacements, which destroy the old object.
+      actions: [delete]
+      tags:
+        protected: "true"

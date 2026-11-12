@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -352,6 +353,109 @@ func TestBadFormatIsAUsageError(t *testing.T) {
 		code, _, _, err := run(t, append(base, extra...)...)
 		if err == nil || code != exitError {
 			t.Errorf("%v: code = %d, err = %v; want a usage error", extra, code, err)
+		}
+	}
+}
+
+const (
+	policyPlan       = "../testdata/policy/plan.json"
+	starterPolicies  = "../policies"
+	policyExemptions = "../testdata/policy/exemptions.yaml"
+)
+
+func TestPolicyCheckGatesOnDeny(t *testing.T) {
+	code, out, _, err := run(t, "policy", "check",
+		"--plan", policyPlan,
+		"--rules", starterPolicies,
+		"--rules", policyExemptions)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if code != exitFindings {
+		t.Errorf("exit = %d, want %d", code, exitFindings)
+	}
+	for _, want := range []string{"[violation] protected-destroy", "8 denied, 2 warning(s), 1 exempted"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report missing %q:\n%s", want, out)
+		}
+	}
+	// Plan values, secrets included, never reach the report.
+	for _, secret := range []string{"hunter2", "REDACTED-BUT-PRESENT"} {
+		if strings.Contains(out, secret) {
+			t.Errorf("report leaks %q", secret)
+		}
+	}
+}
+
+// Warn rules alone do not gate unless --fail-on asks them to, and positional
+// arguments load rule files the way a shell glob passes them.
+func TestPolicyCheckWarnOnlyAndPositionalRules(t *testing.T) {
+	dir := t.TempDir()
+	rules := dir + "/warn.yaml"
+	body := "version: 1\nrules:\n  - id: any-delete\n    description: something is deleted\n    severity: warn\n    match: {actions: [delete]}\n"
+	if err := os.WriteFile(rules, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, _, _, err := run(t, "policy", "check", "--plan", policyPlan, rules)
+	if err != nil || code != exitOK {
+		t.Errorf("warn only: code = %d, err = %v; want 0", code, err)
+	}
+	for _, level := range []string{"warning", "warn"} {
+		code, _, _, err = run(t, "policy", "check", "--plan", policyPlan, "--fail-on", level, rules)
+		if err != nil || code != exitFindings {
+			t.Errorf("--fail-on %s: code = %d, err = %v; want 1", level, code, err)
+		}
+	}
+}
+
+func TestPolicyCheckFormats(t *testing.T) {
+	base := []string{"policy", "check", "--plan", policyPlan, "--rules", starterPolicies}
+	code, out, _, err := run(t, append(base, "--format", "sarif")...)
+	if err != nil || code != exitFindings {
+		t.Fatalf("sarif: code = %d, err = %v", code, err)
+	}
+	if !strings.Contains(out, `"uri": "../policies/protect.yaml"`) {
+		t.Errorf("SARIF results should point at the rule file:\n%s", out)
+	}
+	_, out, _, err = run(t, append(base, "--format", "junit")...)
+	if err != nil || !strings.Contains(out, `<testsuites name="tf-residency-lint policy"`) {
+		t.Errorf("junit: err = %v\n%s", err, out)
+	}
+	_, out, _, err = run(t, append(base, "--format", "json")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Mode   string `json:"mode"`
+		Result struct {
+			Changes  int `json:"resource_changes"`
+			Findings []struct {
+				Rule string `json:"rule"`
+			} `json:"findings"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("not JSON: %v", err)
+	}
+	if doc.Mode != "policy" || doc.Result.Changes != 13 || len(doc.Result.Findings) == 0 {
+		t.Errorf("json = %+v", doc)
+	}
+}
+
+// A state file has no planned changes; "no findings" for it would be a false
+// green.
+func TestPolicyCheckErrors(t *testing.T) {
+	cases := map[string][]string{
+		"state document": {"--plan", "../testdata/state.json", "--rules", starterPolicies},
+		"no rules":       {"--plan", policyPlan},
+		"missing rules":  {"--plan", policyPlan, "--rules", "../testdata/nope"},
+		"bad format":     {"--plan", policyPlan, "--rules", starterPolicies, "--format", "xml"},
+		"bad fail-on":    {"--plan", policyPlan, "--rules", starterPolicies, "--fail-on", "critical"},
+	}
+	for name, args := range cases {
+		code, _, _, err := run(t, append([]string{"policy", "check"}, args...)...)
+		if err == nil || code != exitError {
+			t.Errorf("%s: code = %d, err = %v; want a usage error", name, code, err)
 		}
 	}
 }
