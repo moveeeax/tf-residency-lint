@@ -4,7 +4,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-12
+
+### Added
+
+- `policy check`: YAML rules over the plan's `resource_changes`, matching on
+  resource type, address, change action, tags and attribute values, with
+  `deny` and `warn` severities and exemptions that need a reason and an
+  expiry. Values only known after apply produce undetermined warnings.
+  Text, JSON, SARIF and JUnit output. Starter rules in `policies/`: deny
+  destroy or replace of resources tagged `protected = "true"`, require
+  encryption at rest on new EBS, RDS, Redshift, ElastiCache and OpenSearch
+  storage, block public S3 access blocks, public databases and public Azure
+  blobs, warn on GCS buckets without enforced public access prevention.
+  Carried over from the archived `tf-plan-policy` idea.
+
+## [0.3.0] - 2026-11-06
+
+### Added
+
+- `check --format text|json|sarif|junit`. SARIF 2.1.0 for GitHub code scanning
+  (one rule per finding rule, results located at the matching `residency.yaml`
+  declaration with the resource address as a logical location, disclaimer in
+  `run.properties`); JUnit XML with one testcase per (jurisdiction, resource)
+  for GitLab and Jenkins. `--json` stays as an alias for `--format json`.
+
+## [0.2.0] - 2026-11-05
 
 ### Changed
 
@@ -18,21 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - MIT license.
-- `check --format text|json|sarif|junit`. SARIF 2.1.0 for GitHub code scanning
-  (one rule per finding rule, results located at the matching `residency.yaml`
-  declaration with the resource address as a logical location, disclaimer in
-  `run.properties`); JUnit XML with one testcase per (jurisdiction, resource)
-  for GitLab and Jenkins. `--json` stays as an alias for `--format json`.
-- `policy check`: YAML rules over the plan's `resource_changes`, matching on
-  resource type, address, change action, tags and attribute values, with
-  `deny` and `warn` severities and exemptions that need a reason and an
-  expiry. Values only known after apply produce undetermined warnings.
-  Text, JSON, SARIF and JUnit output. Starter rules in `policies/`: deny
-  destroy or replace of resources tagged `protected = "true"`, require
-  encryption at rest on new EBS, RDS, Redshift, ElastiCache and OpenSearch
-  storage, block public S3 access blocks, public databases and public Azure
-  blobs, warn on GCS buckets without enforced public access prevention.
-  Carried over from the archived `tf-plan-policy` idea.
 
 ## [0.1.0] - 2026-07-26
 
@@ -45,5 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   review freshness.
 - Text and JSON reports.
 
-[Unreleased]: https://github.com/moveeeax/tf-residency-lint/compare/v0.1.0...HEAD
+[0.4.0]: https://github.com/moveeeax/tf-residency-lint/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/moveeeax/tf-residency-lint/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/moveeeax/tf-residency-lint/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/moveeeax/tf-residency-lint/releases/tag/v0.1.0
